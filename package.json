@@ -1,0 +1,29 @@
+{
+  "name": "musher-cli",
+  "version": "0.1.0",
+  "description": "Command-line client for the Cloud Musher board API — drive tickets, decisions, docs and workspaces from the terminal with a personal access token.",
+  "type": "module",
+  "bin": {
+    "musher": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
