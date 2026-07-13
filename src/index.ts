@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { Command } from "commander";
 import pc from "picocolors";
 import { CliError } from "./client.js";
@@ -36,10 +39,28 @@ loadEnv();
 
 const program = new Command();
 
+// Read the version from package.json at runtime so `--version` can never drift
+// from the manifest (#0037). The compiled binary is `dist/index.js`, so
+// package.json sits one level up (`dist/../package.json`); npm always ships
+// package.json regardless of the `files` allowlist, so this resolves in both
+// dev and a published install.
+function readVersion(): string {
+  try {
+    const pkgPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    );
+    return JSON.parse(readFileSync(pkgPath, "utf8")).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
 program
   .name("musher")
   .description("Command-line client for the Cloud Musher board API.")
-  .version("0.1.0");
+  .version(readVersion());
 
 // auth
 program
@@ -150,6 +171,7 @@ doc
   .option("--group <group>", "group (required unless --kind decision)")
   .option("--kind <kind>", "document kind (e.g. decision)")
   .option("--path <path>", "folder-style path (e.g. api/documents/foo.md)")
+  .option("--collection <slug>", "file into a collection by slug")
   .option("--workspace <slug>", "workspace slug or id")
   .option("--body <md>", "body markdown")
   .option("--json", "emit raw JSON")
@@ -161,6 +183,10 @@ doc
   .option("--group <group>", "group")
   .option("--kind <kind>", "document kind (e.g. decision)")
   .option("--path <path>", "folder-style path (e.g. api/documents/foo.md)")
+  .option(
+    "--collection <slug>",
+    'refile into a collection by slug (use --collection "" to unfile)',
+  )
   .option("--workspace <slug>", "workspace slug or id")
   .option("--body <md>", "body markdown")
   .option("--json", "emit raw JSON")
@@ -184,6 +210,35 @@ doc
   .option("--workspace <slug>", "workspace slug or id")
   .option("--json", "emit raw JSON")
   .action(run(docs.supersede));
+
+// docs collections (document taxonomy folders, #0037)
+const col = doc
+  .command("collections")
+  .description("Manage document collections (taxonomy folders)");
+col
+  .command("ls")
+  .description("List collections in a workspace")
+  .option("--workspace <slug>", "workspace slug or id")
+  .option("--json", "emit raw JSON")
+  .action(run(docs.collectionsLs));
+col
+  .command("new")
+  .description("Create a collection")
+  .requiredOption("--name <name>", "collection name")
+  .option("--slug <slug>", "slug (derived from name if omitted)")
+  .option("--position <n>", "sort position")
+  .option("--workspace <slug>", "workspace slug or id")
+  .option("--json", "emit raw JSON")
+  .action(run(docs.collectionsNew));
+col
+  .command("rename <ref>")
+  .description("Rename/reslug/reposition a collection (by slug or id)")
+  .option("--name <name>", "new name")
+  .option("--slug <slug>", "new slug")
+  .option("--position <n>", "new sort position")
+  .option("--workspace <slug>", "workspace slug or id")
+  .option("--json", "emit raw JSON")
+  .action(run(docs.collectionsRename));
 
 // workspaces
 const w = program.command("workspaces").description("Manage workspaces");
