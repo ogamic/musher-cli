@@ -15,6 +15,7 @@ coverage/
 .env
 .env.*
 !.env.example
+.npmrc
 
 # OS / editor junk
 .DS_Store
