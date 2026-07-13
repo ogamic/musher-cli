@@ -21,11 +21,24 @@ interface Doc {
   supersedes?: string[];
 }
 
-export async function ls(opts: { json?: boolean; workspace?: string; kind?: string }) {
+export async function ls(opts: {
+  json?: boolean;
+  workspace?: string;
+  kind?: string;
+  search?: string;
+}) {
   const ws = resolveWorkspace(opts.workspace);
   const params = new URLSearchParams();
   if (ws) params.set("workspace", ws);
   if (opts.kind) params.set("kind", opts.kind);
+  if (opts.search) {
+    params.set("q", opts.search); // free-text server-side FTS (API `q`)
+    // A content search means "find anything" — override the list's legacy
+    // default (`kind != decision`) so governance decisions aren't silently
+    // omitted. Mirrors the web (`includeKinds=all`). An explicit `--kind`
+    // still wins: it's a narrower scope the user asked for.
+    if (!opts.kind) params.set("includeKinds", "all");
+  }
   const q = params.toString() ? `?${params.toString()}` : "";
   const list = await api<Doc[]>(`/api/documents${q}`);
   if (opts.json) {
@@ -88,6 +101,7 @@ export async function create(opts: {
   body?: string;
   workspace?: string;
   kind?: string;
+  path?: string;
   json?: boolean;
 }) {
   if (!opts.title) throw new CliError("--title is required.");
@@ -108,6 +122,10 @@ export async function create(opts: {
   };
   if (opts.kind) payload.kind = opts.kind;
   if (!isDecision) payload.group = opts.group;
+  // Folder-style path (e.g. api/documents/coding-conventions.md) keeps identical
+  // filenames across sub-projects from colliding on the globally-unique path;
+  // the API derives a title-slug only when it's absent.
+  if (opts.path) payload.path = opts.path;
   const d = await api<Doc>("/api/documents", { method: "POST", body: payload });
   if (opts.json) {
     json(d);
@@ -124,6 +142,8 @@ export async function edit(
     group?: string;
     body?: string;
     workspace?: string;
+    kind?: string;
+    path?: string;
     json?: boolean;
   },
 ) {
@@ -132,6 +152,8 @@ export async function edit(
   const payload: Record<string, unknown> = {};
   if (opts.title !== undefined) payload.title = opts.title;
   if (opts.group !== undefined) payload.group = opts.group;
+  if (opts.kind !== undefined) payload.kind = opts.kind;
+  if (opts.path !== undefined) payload.path = opts.path;
   if (opts.body !== undefined) payload.body_md = opts.body;
   if (Object.keys(payload).length === 0) {
     throw new CliError("Nothing to update — pass at least one field.");

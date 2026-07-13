@@ -3,12 +3,31 @@
   "version": "0.1.0",
   "description": "Command-line client for the Cloud Musher board API — drive tickets, decisions, docs and workspaces from the terminal with a personal access token.",
   "type": "module",
+  "license": "MIT",
+  "author": "Kevin Nguyen <bangnguyenanh@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ogamic/musher-cli.git"
+  },
+  "homepage": "https://github.com/ogamic/musher-cli#readme",
+  "bugs": {
+    "url": "https://github.com/ogamic/musher-cli/issues"
+  },
+  "keywords": [
+    "musher",
+    "cli",
+    "kanban",
+    "board",
+    "tickets",
+    "project-management"
+  ],
   "bin": {
     "musher": "dist/index.js"
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=20"
@@ -16,7 +35,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "commander": "^12.1.0",

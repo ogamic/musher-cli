@@ -1,6 +1,6 @@
 import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
-import { api, CliError, resolveWorkspace } from "../client.js";
+import { api, apiPage, CliError, resolveWorkspace } from "../client.js";
 import {
   json,
   pad,
@@ -58,15 +58,35 @@ function splitList(v: string | undefined): string[] | undefined {
 
 export async function ls(opts: {
   workspace?: string;
+  search?: string;
+  epic?: string;
+  type?: string;
+  agent?: string;
+  prio?: string;
   lane?: string;
+  limit?: string;
+  offset?: string;
   json?: boolean;
 }) {
   // `--workspace` is the scope flag; falls back to MUSHER_WORKSPACE
-  // (real env or `./.env`) when no flag is given.
+  // (real env or `./.env`) when no flag is given. Every other flag maps to a
+  // server-side `/api/tickets` query param — nothing is filtered client-side,
+  // so pagination and totals stay honest.
   const scope = resolveWorkspace(opts.workspace);
-  const qs = scope ? `?workspace=${encodeURIComponent(scope)}` : "";
-  let tickets = await api<Ticket[]>(`/api/tickets${qs}`);
-  if (opts.lane) tickets = tickets.filter((t) => t.lane === opts.lane);
+  const params = new URLSearchParams();
+  if (scope) params.set("workspace", scope);
+  if (opts.search) params.set("q", opts.search); // free-text (API `q`)
+  if (opts.epic) params.set("epic", opts.epic);
+  if (opts.type) params.set("type", opts.type);
+  if (opts.agent) params.set("agent", opts.agent);
+  if (opts.prio) params.set("priority", opts.prio);
+  if (opts.lane) params.set("state", opts.lane); // lane → server-side `state`
+  if (opts.limit) params.set("limit", opts.limit);
+  if (opts.offset) params.set("offset", opts.offset);
+  const qs = params.toString();
+  const { data: tickets, meta } = await apiPage<Ticket>(
+    `/api/tickets${qs ? `?${qs}` : ""}`,
+  );
 
   if (opts.json) {
     json(tickets);
@@ -86,6 +106,19 @@ export async function ls(opts: {
   stdout.write(
     table(["ID", "LANE", "PRIO", "TITLE", "WORKSPACE"], rows) + "\n",
   );
+
+  // Surface truncation so it is never silent: if the server holds more rows
+  // than this page shows (accounting for offset), point at --limit/--offset.
+  if (meta && meta.total > meta.offset + tickets.length) {
+    const range = meta.offset > 0
+      ? `${meta.offset + 1}-${meta.offset + tickets.length}`
+      : `${tickets.length}`;
+    stdout.write(
+      dim(
+        `showing ${range} of ${meta.total} — use --limit/--offset to page\n`,
+      ),
+    );
+  }
 }
 
 /** Most recent comments shown inline by `tickets get`; older ones are elided. */
@@ -163,6 +196,7 @@ export async function create(opts: {
   workspace?: string;
   type?: string;
   prio?: string;
+  lane?: string;
   epic?: string;
   agents?: string;
   body?: string;
@@ -182,6 +216,7 @@ export async function create(opts: {
   };
   if (opts.type) payload.type = opts.type;
   if (opts.prio) payload.prio = opts.prio;
+  if (opts.lane) payload.lane = opts.lane;
   if (opts.epic) payload.epic = opts.epic;
   const agents = splitList(opts.agents);
   if (agents) payload.agents = agents;

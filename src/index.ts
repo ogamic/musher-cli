@@ -74,7 +74,14 @@ const t = program.command("tickets").description("Manage tickets");
 t.command("ls")
   .description("List tickets")
   .option("--workspace <slug>", "filter by workspace")
-  .option("--lane <lane>", "filter by lane (client-side)")
+  .option("--search <q>", "free-text search over title + body")
+  .option("--epic <name>", "filter by epic")
+  .option("--type <type>", "filter by type")
+  .option("--agent <name>", "filter by assigned agent")
+  .option("--prio <prio>", "filter by priority")
+  .option("--lane <lane>", "filter by lane (server-side state)")
+  .option("--limit <n>", "max rows to return (server default 100, max 500)")
+  .option("--offset <n>", "skip N rows (pagination)")
   .option("--json", "emit raw JSON")
   .action(run(tickets.ls));
 t.command("get <id>")
@@ -88,6 +95,7 @@ t.command("new")
   .option("--workspace <slug>", "workspace slug")
   .option("--type <type>", "ticket type")
   .option("--prio <prio>", "priority")
+  .option("--lane <lane>", "initial lane")
   .option("--epic <epic>", "epic")
   .option("--agents <a,b>", "comma-separated agents")
   .option("--body <md>", "body markdown")
@@ -126,6 +134,7 @@ doc
   .description("List documents")
   .option("--workspace <slug>", "workspace slug or id")
   .option("--kind <kind>", "filter by kind (e.g. decision)")
+  .option("--search <q>", "free-text search over title + body")
   .option("--json", "emit raw JSON")
   .action(run(docs.ls));
 doc
@@ -140,6 +149,7 @@ doc
   .requiredOption("--title <t>", "title")
   .option("--group <group>", "group (required unless --kind decision)")
   .option("--kind <kind>", "document kind (e.g. decision)")
+  .option("--path <path>", "folder-style path (e.g. api/documents/foo.md)")
   .option("--workspace <slug>", "workspace slug or id")
   .option("--body <md>", "body markdown")
   .option("--json", "emit raw JSON")
@@ -149,6 +159,8 @@ doc
   .description("Edit a document (only provided fields)")
   .option("--title <t>", "title")
   .option("--group <group>", "group")
+  .option("--kind <kind>", "document kind (e.g. decision)")
+  .option("--path <path>", "folder-style path (e.g. api/documents/foo.md)")
   .option("--workspace <slug>", "workspace slug or id")
   .option("--body <md>", "body markdown")
   .option("--json", "emit raw JSON")
@@ -179,6 +191,17 @@ w.command("ls")
   .description("List workspaces")
   .option("--json", "emit raw JSON")
   .action(run(workspaces.ls));
+w.command("new")
+  .description("Create a workspace")
+  .requiredOption("--slug <slug>", "workspace slug")
+  .requiredOption("--name <name>", "workspace name")
+  .option("--json", "emit raw JSON")
+  .action(run(workspaces.create));
+w.command("rm <slug>")
+  .description("Delete a workspace and ALL its tickets/docs (admin)")
+  .option("--yes", "skip the interactive confirm")
+  .option("--json", "emit raw JSON")
+  .action(run(workspaces.rm));
 
 // users
 const u = program.command("users").description("Manage users");

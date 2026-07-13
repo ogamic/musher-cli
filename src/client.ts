@@ -88,13 +88,27 @@ interface RequestOpts {
 }
 
 /**
- * Perform an authenticated request, unwrap `{ data }`, and map failures to
- * friendly CliErrors. Returns the unwrapped `data` payload.
+ * Pagination envelope the API attaches to list responses via `sendPaginated`
+ * (`{ data, meta }`). Mirrors the API's `PaginationMeta` — the contract.
  */
-export async function api<T = unknown>(
-  path: string,
-  opts: RequestOpts = {},
-): Promise<T> {
+export interface PaginationMeta {
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/** A list response plus its pagination envelope (`meta` absent if unpaginated). */
+export interface Page<T> {
+  data: T[];
+  meta?: PaginationMeta;
+}
+
+/**
+ * Perform an authenticated request and map failures to friendly CliErrors.
+ * Returns the parsed JSON payload object (envelope intact), or `undefined` for
+ * an empty body. Callers unwrap `.data` / `.meta` as needed.
+ */
+async function request(path: string, opts: RequestOpts = {}): Promise<any> {
   const apiUrl = opts.apiUrl ?? resolveApiUrl();
   const token = opts.token ?? resolveToken();
   const method = opts.method ?? "GET";
@@ -135,9 +149,7 @@ export async function api<T = unknown>(
     }
   }
 
-  if (res.ok) {
-    return (payload && "data" in payload ? payload.data : payload) as T;
-  }
+  if (res.ok) return payload;
 
   const apiMsg: string | undefined = payload?.error?.message;
 
@@ -156,6 +168,32 @@ export async function api<T = unknown>(
     throw new CliError(apiMsg || "Not found.");
   }
   throw new CliError(apiMsg || `Request failed (HTTP ${res.status}).`);
+}
+
+/**
+ * Perform an authenticated request, unwrap `{ data }`, and map failures to
+ * friendly CliErrors. Returns the unwrapped `data` payload.
+ */
+export async function api<T = unknown>(
+  path: string,
+  opts: RequestOpts = {},
+): Promise<T> {
+  const payload = await request(path, opts);
+  return (payload && "data" in payload ? payload.data : payload) as T;
+}
+
+/**
+ * Like `api`, but preserves the pagination envelope so callers can surface the
+ * total (`{ data, meta }`). Use for list endpoints served via `sendPaginated`.
+ */
+export async function apiPage<T = unknown>(
+  path: string,
+  opts: RequestOpts = {},
+): Promise<Page<T>> {
+  const payload = await request(path, opts);
+  const data = (payload && "data" in payload ? payload.data : payload) as T[];
+  const meta = payload?.meta as PaginationMeta | undefined;
+  return { data: data ?? [], meta };
 }
 
 /** Look up the caller's role for the 403 message; never throws. */
